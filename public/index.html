@@ -154,6 +154,14 @@
   }
   .quietlink{display:block;text-align:center;margin:34px 0 20px}
   .fine{color:var(--muted);font-size:12px;text-align:center;line-height:1.5;margin:0 0 8px}
+  .toast{
+    position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));z-index:60;
+    transform:translateX(-50%) translateY(-14px);opacity:0;pointer-events:none;
+    background:var(--ink);color:var(--paper);border-radius:999px;
+    padding:12px 20px;font-size:15px;font-weight:560;white-space:nowrap;
+    box-shadow:0 8px 24px -8px rgba(0,0,0,.4);transition:opacity .18s,transform .18s;
+  }
+  .toast.on{opacity:1;transform:translateX(-50%)}
   .hidden{display:none!important}
   .thanks{text-align:center;padding:46px 10px 30px}
   .thanks .big{font-size:40px;line-height:1}
@@ -244,6 +252,8 @@
 </div>
 
 <!-- ===== handoff sheet ===== -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <div class="sheet" id="sheet" aria-hidden="true">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <div class="tick">✓</div>
@@ -437,7 +447,17 @@
   /* Instagram and WhatsApp in-app browsers sometimes refuse the clipboard outright.
      Silently sending someone to a blank Google box with nothing to paste is the worst
      possible failure, so say so and let them copy by hand. */
+  let toastTimer = null;
+  const toast = (msg) => {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('on'), 2400);
+  };
+
   const showCopyState = (copied) => {
+    toast(copied ? 'Review copied \u2713' : 'Copy it by hand below');
     $('sheetTitle').textContent = copied ? 'Copied. Three taps left.' : 'Copy this first';
     $('copyFallback').classList.toggle('hidden', copied);
     $('steps').classList.toggle('hidden', !copied);
@@ -479,9 +499,10 @@
   $('againBtn').addEventListener('click', () => {
     const text = state.review || '';
     if (!text) return;
-    copyNow(text);
-    $('againBtn').textContent = 'Copied ✓';
-    setTimeout(() => { location.href = state.cfg.reviewUrl; }, 600);
+    const ok = copyNow(text);
+    toast(ok ? 'Review copied \u2713' : 'Copy blocked, select the text manually');
+    $('againBtn').textContent = ok ? 'Copied \u2713' : 'Try again';
+    if (ok) setTimeout(() => { location.href = state.cfg.reviewUrl; }, 900);
   });
 
   $('restartBtn').addEventListener('click', () => {

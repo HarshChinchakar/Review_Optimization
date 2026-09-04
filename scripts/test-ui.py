@@ -111,12 +111,17 @@ for loc, name, accent in (("female", "GVC PG Service", "terracotta"),
     check(f"[{loc}] search phrasing never reaches the client", "seo" not in json.dumps(cfg))
 
 _, exe = api("/api/config?loc=executive")
-check("executive points at the real g.page link",
-      exe["reviewUrl"] == "https://g.page/r/CUPUwlmMfePdEBM/review", exe["reviewUrl"])
+check("executive points at the review composer, not the g.page shortlink",
+      exe["reviewUrl"] == "https://search.google.com/local/writereview?placeid=ChIJ3546OuK5wjsRQ9TCWYx9490",
+      exe["reviewUrl"])
+check("the composer URL keeps people on google.com, not the Maps app",
+      "g.page" not in exe["reviewUrl"] and "/maps/" not in exe["reviewUrl"])
 check("executive link flagged configured", exe["reviewUrlConfigured"] is True)
 _, fem = api("/api/config?loc=female")
-check("female falls back to a Maps search (no link supplied yet)",
-      fem["reviewUrlConfigured"] is False and "maps" in fem["reviewUrl"])
+check("female falls back to a Google web search, never Maps",
+      fem["reviewUrlConfigured"] is False
+      and fem["reviewUrl"].startswith("https://www.google.com/search?")
+      and "/maps/" not in fem["reviewUrl"], fem["reviewUrl"])
 check("unknown loc falls back rather than erroring",
       api("/api/config?loc=../../etc/passwd")[1]["name"] == "GVC PG Service")
 _, cfg = api("/api/config?loc=female")
@@ -323,6 +328,13 @@ with sync_playwright() as pw:
           "Paste" in steps[1] and "hold" in steps[1].lower(), steps[1])
     check("bold words are not split apart by the flex gap", "Tap the review box" in steps[0], steps[0])
     check("clipboard fallback stays hidden when the copy worked", not p.is_visible("#copyFallback"))
+    check("a copy confirmation is actually shown", "copied" in p.inner_text("#toast").lower(),
+          p.inner_text("#toast"))
+    check("the toast is visible, not just present", "on" in p.get_attribute("#toast", "class"))
+    check("the toast does not cover the sheet's primary button", p.evaluate("""
+        (() => { const t = document.getElementById('toast').getBoundingClientRect();
+                 const b = document.getElementById('openGoogle').getBoundingClientRect();
+                 return t.bottom <= b.top || t.top >= b.bottom; })()"""))
     check("sheet buttons sit inside the viewport", p.evaluate("""
         ['openGoogle','sheetClose'].every(id => {
           const r = document.getElementById(id).getBoundingClientRect();

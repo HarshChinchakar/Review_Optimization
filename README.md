@@ -35,6 +35,7 @@ else happens, and the handoff sheet tells them the exact gesture to use when the
 
 | # | What | Why | Status |
 |---|---|---|---|
+| 0 | *(reference)* Paste the `g.page/r/…/review` link into a browser once and copy **where it lands** — `search.google.com/local/writereview?placeid=…`. Use that. Android app-links hand `g.page` straight to the Maps app, which drops people on the profile instead of the review box | Keeps the resident on google.com with a clipboard they can actually paste | ✅ done for Executive |
 | 1 | **"Ask for reviews" link for GVC PG Service (Female Only)** — Business Profile → Home → *Ask for reviews*. Looks like `https://g.page/r/XXXXXXXX/review` | The Executive link is in and verified. Without the female one, that QR falls back to a Maps search and loses people at the last step | ⛔ **still needed** |
 | 2 | **Who GVC Executive PG is for** — men, mixed, or women too? | Address, phone and rent band are in. But the chip *tone* depends on the audience: if women stay there too, the safety chips belong on it as well | ⚠️ before printing that QR |
 | 3 | **Amenity truth-check** for both properties — meals, WiFi, AC, hot water, power backup, laundry, housekeeping, sharing options, gate timing, CCTV, parking | **Every chip must be true.** A chip for something you don't offer turns a real review into a false claim | ⚠️ do this before going live |
@@ -60,8 +61,9 @@ git remote add origin <your-repo-url> && git push -u origin main
 
 # 3. Project Settings -> Environment Variables, add:
 #    GROQ_API_KEY          gsk_...                          (all environments)
-#    REVIEW_URL_FEMALE     https://g.page/r/..../review
-#    REVIEW_URL_EXECUTIVE  https://g.page/r/..../review
+#    REVIEW_URL_FEMALE     https://search.google.com/local/writereview?placeid=...
+#    REVIEW_URL_EXECUTIVE  https://search.google.com/local/writereview?placeid=...
+#    REVIEW_DESTINATION    composer   (or "profile" — see below)
 #    GROQ_MODEL            openai/gpt-oss-120b              (optional)
 
 # 4. Deploy. Then point the QRs at the live URL:
@@ -132,6 +134,23 @@ search-shaped phrase and weaves it in naturally. Nobody is asked to read a keywo
 Edit, redeploy, reprint nothing — the QR URL doesn't change.
 
 ---
+
+## Where the Post button lands
+
+Two destinations, set by `REVIEW_DESTINATION`:
+
+- **`composer`** (default) — `search.google.com/local/writereview?placeid=…`. Opens Google's review box
+  directly. Fewest taps, and the one to use.
+- **`profile`** — `google.com/search?q=<business> reviews`. Lands on the knowledge panel, so the resident
+  still has to find *Write a review*. More taps, but it is plain google.com and can never be intercepted.
+
+Use `profile` only if the composer keeps getting hijacked by the Maps app on real phones. A property with no
+review link configured falls back to its `profileUrl` automatically — never to a Maps search, which is a dead
+end for someone holding a clipboard.
+
+**There is still no way to pre-fill the text or the stars.** Verified directly: Google strips `&rating=` and
+`&review=` from the URL before redirecting, and cross-origin JS cannot touch Google's page. Clipboard plus
+clear instructions is the whole of what is possible.
 
 ## How the writing stays honest (and why that's also what makes it work)
 
