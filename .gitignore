@@ -1,0 +1,29 @@
+# secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# deps / build
+node_modules/
+.vercel/
+.next/
+dist/
+
+# generated QR assets
+qr-*.png
+qr-*.svg
+poster-*.html
+
+.screens/
+
+# local logs & data
+data/
+*.log
+npm-debug.log*
+
+# editor / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en" data-accent="terracotta">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#141311" media="(prefers-color-scheme: dark)" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%AD%90%3C/text%3E%3C/svg%3E" />
+<title>Leave a review</title>
+<style>
+  /* Roles, not values. One warm neutral family, one accent, nothing else. */
+  :root{
+    --paper:#f7f5f1; --card:#ffffff; --ink:#1b1a18; --muted:#6f6a62; --line:#e6e2da;
+    --accent:#c2410c; --accent-soft:#fdf0e7; --accent-ink:#ffffff;
+    --r-card:16px; --r-ctrl:11px;
+    --shadow:0 1px 1px rgba(28,24,18,.04), 0 10px 28px -14px rgba(28,24,18,.22);
+  }
+  :root[data-accent="slate"]{ --accent:#1c5b7e; --accent-soft:#e9f1f6; }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#141311; --card:#1c1a17; --ink:#efece5; --muted:#9a938a; --line:#2f2c27;
+      --accent:#f0803c; --accent-soft:#31200f; --accent-ink:#1a1108;
+      --shadow:0 1px 1px rgba(0,0,0,.4), 0 12px 30px -16px rgba(0,0,0,.7);
+    }
+    :root[data-accent="slate"]{ --accent:#7cc0e4; --accent-soft:#132b39; --accent-ink:#0b1a24; }
+  }
+
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:400 16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+    padding-bottom:calc(120px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:480px;margin:0 auto;padding:0 18px}
+
+  /* --- identity --- */
+  header{padding:26px 0 22px}
+  .name{font-size:26px;line-height:1.12;font-weight:640;letter-spacing:-.025em;margin:0}
+  .tagline{color:var(--muted);font-size:14px;margin-top:6px}
+  .promise{
+    display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:5px 11px 5px 9px;
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    font-size:12.5px;color:var(--muted);
+  }
+  .promise b{color:var(--ink);font-weight:560}
+
+  /* Heading belongs to what follows it, so the gap below is tighter than the gap above. */
+  h2{font-size:19px;font-weight:600;letter-spacing:-.015em;margin:30px 0 6px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+
+  /* --- chips: the whole product --- */
+  .chips{display:flex;flex-wrap:wrap;gap:9px}
+  .chip{
+    font:inherit;font-size:15px;line-height:1.2;color:var(--ink);
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:12px 15px 12px 13px;min-height:44px;display:inline-flex;align-items:center;gap:7px;
+    cursor:pointer;transition:background .12s,border-color .12s,color .12s,transform .09s;
+  }
+  .chip .e{font-size:15px;line-height:1;transform:translateY(-.5px)}
+  .chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:560}
+  .chip:active{transform:scale(.955)}
+  .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* --- the optional note, kept out of the way until asked for --- */
+  .linkbtn{
+    background:none;border:0;padding:10px 0;font:inherit;font-size:14px;color:var(--muted);
+    text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line);cursor:pointer;
+  }
+  .linkbtn:active{color:var(--ink)}
+  textarea{
+    width:100%;margin-top:4px;padding:12px 13px;border:1px solid var(--line);border-radius:var(--r-ctrl);
+    background:var(--card);color:var(--ink);font:inherit;font-size:16px; /* 16px or iOS zooms on focus */
+    resize:vertical;min-height:74px;
+  }
+  textarea:focus{outline:none;border-color:var(--accent)}
+
+  /* --- the review --- */
+  .review{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);
+    box-shadow:var(--shadow);padding:16px 16px 14px;margin-top:4px;
+  }
+  .review .cap{
+    font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+    display:block;margin-bottom:9px;
+  }
+  .review textarea{border:0;background:transparent;padding:0;min-height:0;height:auto;resize:none;overflow:hidden;font-size:16.5px;line-height:1.6}
+  .review textarea:focus{outline:none}
+  .review .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .review .foot span{font-size:12.5px;color:var(--muted)}
+
+  /* --- buttons --- */
+  .btn{
+    width:100%;font:inherit;font-size:17px;font-weight:600;letter-spacing:-.01em;
+    border:0;border-radius:13px;padding:17px 18px;background:var(--accent);color:var(--accent-ink);
+    cursor:pointer;transition:transform .09s,opacity .15s;
+  }
+  .btn:active:not(:disabled){transform:scale(.985)}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn.quiet{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500;font-size:15px;padding:13px}
+  .btn.quiet:active{color:var(--ink)}
+
+  /* Sticky, because making someone hunt for the way forward is where they leave. */
+  .dock{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,var(--paper) 62%,transparent);
+    transform:translateY(140%);transition:transform .28s cubic-bezier(.32,.72,0,1);
+  }
+  .dock.up{transform:none}
+  .dock .inner{max-width:480px;margin:0 auto}
+  .hint{text-align:center;font-size:12.5px;color:var(--muted);margin:9px 0 0}
+
+  /* --- handoff sheet: the five seconds where reviews die --- */
+  .sheet{
+    position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;
+    background:rgba(24,20,16,.42);opacity:0;pointer-events:none;transition:opacity .2s;
+  }
+  .sheet.on{opacity:1;pointer-events:auto}
+  .sheet .panel{
+    width:100%;background:var(--card);border-radius:22px 22px 0 0;padding:26px 22px calc(26px + env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);
+  }
+  .sheet.on .panel{transform:none}
+  .tick{
+    width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+    display:grid;place-items:center;font-size:22px;margin:0 auto 14px;
+  }
+  .sheet h3{margin:0;text-align:center;font-size:20px;font-weight:640;letter-spacing:-.02em}
+  .steps{list-style:none;margin:18px 0 22px;padding:0;counter-reset:s}
+  .steps li{
+    counter-increment:s;display:flex;gap:12px;align-items:baseline;padding:9px 0;
+    font-size:15.5px;color:var(--ink);
+  }
+  .steps li > span{flex:1}  /* keeps inline <b> inline instead of making it a flex item */
+  .steps li::before{
+    content:counter(s);flex:none;width:23px;height:23px;border-radius:50%;background:var(--accent-soft);
+    color:var(--accent);font-size:12px;font-weight:700;display:grid;place-items:center;transform:translateY(2px);
+  }
+  .steps b{font-weight:600}
+  .steps small{display:inline-block;margin-top:3px;font-size:13px;color:var(--muted)}
+
+  /* --- misc states --- */
+  .spinner{
+    display:inline-block;width:15px;height:15px;margin-right:9px;vertical-align:-2px;
+    border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .65s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{
+    background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);
+    border-radius:var(--r-ctrl);padding:12px 13px;font-size:14.5px;margin-top:14px;
+  }
+  .quietlink{display:block;text-align:center;margin:34px 0 20px}
+  .fine{color:var(--muted);font-size:12px;text-align:center;line-height:1.5;margin:0 0 8px}
+  .hidden{display:none!important}
+  .thanks{text-align:center;padding:46px 10px 30px}
+  .thanks .big{font-size:40px;line-height:1}
+  .thanks h2{margin:14px 0 8px}
+  .thanks p{color:var(--muted);margin:0 auto;max-width:300px;font-size:15px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ===== main flow ===== -->
+  <div id="flow">
+    <header>
+      <h1 class="name" id="bizName">&nbsp;</h1>
+      <div class="tagline" id="bizTag">&nbsp;</div>
+      <div class="promise"><span>⏱</span><span>Takes <b>20 seconds</b> · no typing needed</span></div>
+    </header>
+
+    <section id="pickSection">
+      <h2 id="askTitle">What was good about your stay?</h2>
+      <p class="sub">Tap whatever's true. We'll turn it into a review for you.</p>
+      <div class="chips" id="chips"></div>
+
+      <button class="linkbtn" id="noteToggle">Want to add something in your own words?</button>
+      <textarea id="note" class="hidden" rows="3" maxlength="300"
+        placeholder="Anything else worth mentioning: a person who helped, something that surprised you"></textarea>
+
+      <div id="pickErr"></div>
+    </section>
+
+    <!-- ===== the written review ===== -->
+    <section id="reviewSection" class="hidden">
+      <h2>Here's your review</h2>
+      <p class="sub">Change any word you like. It's yours, not ours.</p>
+      <div class="review">
+        <span class="cap">Your review</span>
+        <textarea id="reviewText" rows="5" aria-label="Your review"></textarea>
+        <div class="foot">
+          <span id="charCount"></span>
+          <button class="btn quiet" id="rewordBtn" style="width:auto;padding:9px 14px">Say it differently</button>
+        </div>
+      </div>
+      <div id="reviewErr"></div>
+    </section>
+
+    <!-- Always visible, for everyone, at every sentiment. Never a replacement for the public path. -->
+    <div class="quietlink">
+      <button class="linkbtn" id="privateToggle">Something wasn't right? Tell us privately</button>
+    </div>
+
+    <section id="privateSection" class="hidden">
+      <div class="review">
+        <span class="cap">Straight to the owner</span>
+        <textarea id="privateText" rows="4" placeholder="What went wrong? This goes to the owner, not to Google."></textarea>
+        <div class="foot">
+          <span>Phone or email, if you want a reply</span>
+        </div>
+        <textarea id="privateContact" rows="1" style="min-height:44px;margin-top:8px" placeholder="Optional"></textarea>
+        <button class="btn" id="privateSend" style="margin-top:12px">Send to the owner</button>
+      </div>
+    </section>
+
+    <p class="fine" id="fineprint">
+      We help you word it. What gets posted is your choice, in your account.
+    </p>
+  </div>
+
+  <!-- ===== thank you ===== -->
+  <div id="thanks" class="thanks hidden">
+    <div class="big">🙏</div>
+    <h2 id="thanksTitle">Thank you</h2>
+    <p id="thanksBody">That genuinely helps someone else find a place to stay.</p>
+    <div style="margin-top:26px">
+      <button class="btn quiet" id="againBtn" style="width:auto;padding:12px 20px">Copy my review again</button>
+      <div><button class="linkbtn" id="restartBtn" style="margin-top:14px">Start over</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== sticky primary action ===== -->
+<div class="dock" id="dock">
+  <div class="inner">
+    <button class="btn" id="primaryBtn" disabled>Write my review</button>
+    <p class="hint" id="dockHint">Pick a couple of things above</p>
+  </div>
+</div>
+
+<!-- ===== handoff sheet ===== -->
+<div class="sheet" id="sheet" aria-hidden="true">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="tick">✓</div>
+    <h3 id="sheetTitle">Copied. Three taps left.</h3>
+    <ol class="steps" id="steps">
+      <li><span><b>Tap</b> the review box that opens</span></li>
+      <li><span>Tap <b>Paste</b> on the little bar that pops up<br><small>Nothing pops up? Press and hold, then Paste.</small></span></li>
+      <li><span>Pick your stars and tap <b>Post</b></span></li>
+    </ol>
+    <div id="copyFallback" class="hidden">
+      <p style="font-size:14.5px;color:var(--muted);margin:14px 0 8px">
+        Your browser blocked the automatic copy. Press and hold the text below, tap <b>Copy</b>, then continue.
+      </p>
+      <textarea id="fallbackText" rows="4" readonly
+        style="width:100%;font-size:15px;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink)"></textarea>
+    </div>
+    <button class="btn" id="openGoogle">Open Google now</button>
+    <button class="btn quiet" id="sheetClose" style="margin-top:9px">Not yet</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const LOC = params.get('loc') === 'executive' ? 'executive' : 'female';
+
+  const STORE_KEY = 'gvc_review_' + LOC;   // per property, so one QR never clears the other's
+  const state = { cfg: null, picked: new Set(), review: '', busy: false, posted: false };
+
+  /* ---------- boot ---------- */
+  const boot = async () => {
+    try {
+      state.cfg = await fetch('/api/config?loc=' + LOC).then((r) => r.json());
+    } catch {
+      $('pickErr').innerHTML = '<div class="err">No connection. Check your internet and pull down to refresh.</div>';
+      return;
+    }
+    const c = state.cfg;
+    document.documentElement.dataset.accent = c.accent === 'slate' ? 'slate' : 'terracotta';
+    document.title = 'Review ' + c.name;
+    $('bizName').textContent = c.name;
+    $('bizTag').textContent = c.tagline;
+    if (LOC === 'executive') $('askTitle').textContent = 'What worked well for you here?';
+
+    $('chips').innerHTML = c.chips.map((chip) =>
+      `<button class="chip" type="button" aria-pressed="false" data-id="${chip.id}">` +
+      `<span class="e" aria-hidden="true">${chip.emoji}</span>${chip.label}</button>`
+    ).join('');
+
+    if (!c.aiReady) {
+      $('pickErr').innerHTML = '<div class="err">The review writer isn\'t switched on yet — add GROQ_API_KEY in Vercel and redeploy.</div>';
+    }
+    log('scanned');
+
+    // Someone coming back from Google shouldn't lose their review — but only if it was
+    // this property, and only for the next half hour. Otherwise a later scan in the same
+    // tab would land them on the thank-you screen with no obvious way into the flow.
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null');
+      if (saved && Date.now() - saved.at < 30 * 60 * 1000) {
+        state.review = saved.text;
+        showThanks();
+      } else if (saved) {
+        sessionStorage.removeItem(STORE_KEY);   // expired, not someone else's
+      }
+    } catch { sessionStorage.removeItem(STORE_KEY); }
+  };
+
+  /* ---------- chips ---------- */
+  $('chips').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    const id = chip.dataset.id;
+    const on = state.picked.has(id);
+    on ? state.picked.delete(id) : state.picked.add(id);
+    chip.setAttribute('aria-pressed', String(!on));
+    if (navigator.vibrate) navigator.vibrate(8);
+    syncDock();
+  });
+
+  const syncDock = () => {
+    const n = state.picked.size;
+    const ready = n >= 2;
+    $('dock').classList.toggle('up', n > 0 || !$('reviewSection').classList.contains('hidden'));
+    if (state.review) {
+      $('dockHint').textContent = 'Changed your mind? Tap "Say it differently" to fold that in';
+      return;
+    }
+    $('primaryBtn').disabled = !ready || state.busy;
+    $('dockHint').textContent = ready
+      ? 'Tap more if you like, it only makes it better'
+      : (n === 1 ? 'One more and we can write it' : 'Pick a couple of things above');
+  };
+
+  /* ---------- optional note ---------- */
+  $('noteToggle').addEventListener('click', () => {
+    $('note').classList.remove('hidden');
+    $('noteToggle').classList.add('hidden');
+    $('note').focus(); // only ever on an explicit tap — never on landing
+  });
+
+  /* ---------- generate ---------- */
+  const generate = async (reword) => {
+    if (state.busy) return;
+    state.busy = true;
+    const btn = reword ? $('rewordBtn') : $('primaryBtn');
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>' + (reword ? 'Rewriting' : 'Writing your review');
+    $('pickErr').innerHTML = $('reviewErr').innerHTML = '';
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          loc: LOC,
+          chips: [...state.picked],
+          note: $('note').value.trim(),
+          previous: reword ? state.review : ''
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not write the review just now.');
+
+      state.review = data.review;
+      $('reviewText').value = data.review;
+      countChars();
+      $('reviewSection').classList.remove('hidden');
+      autoGrow($('reviewText'));   // must run after it's visible, or scrollHeight is 0
+      $('primaryBtn').textContent = 'Copy & post on Google';
+      $('dockHint').textContent = 'Opens Google, then you paste and tap Post';
+      $('dock').classList.add('up');
+      if (!reword) $('reviewSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      const box = reword ? $('reviewErr') : $('pickErr');
+      box.innerHTML = '<div class="err">' + err.message + '</div>';
+    } finally {
+      state.busy = false;
+      btn.disabled = false;
+      btn.textContent = reword ? 'Say it differently' : (state.review ? 'Copy & post on Google' : label);
+    }
+  };
+
+  const autoGrow = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+
+  const countChars = () => {
+    const n = $('reviewText').value.trim().length;
+    $('charCount').textContent = n + (n === 1 ? ' character' : ' characters');
+  };
+  $('reviewText').addEventListener('input', (e) => { state.review = e.target.value; countChars(); autoGrow(e.target); });
+  $('rewordBtn').addEventListener('click', () => generate(true));
+
+  /* ---------- clipboard ----------
+     Must run synchronously inside the tap handler. iOS Safari refuses the async
+     clipboard API once you've awaited anything, and that silently breaks the whole flow. */
+  const copyNow = (text) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length); // iOS needs the explicit range
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {});
+      return ok;   // execCommand is the one that reports synchronously
+    } catch {
+      navigator.clipboard?.writeText(text).catch(() => {});
+      return false;
+    }
+  };
+
+  /* ---------- primary action ---------- */
+  $('primaryBtn').addEventListener('click', () => {
+    if (!state.review) return generate(false);
+    const text = $('reviewText').value.trim();
+    if (!text) return;
+    const copied = copyNow(text);        // copy first, everything else after
+    showCopyState(copied);
+    sessionStorage.setItem(STORE_KEY, JSON.stringify({ text, at: Date.now() }));
+    if (navigator.vibrate) navigator.vibrate([12, 40, 12]);
+    openSheet(copied);
+    log('copied');
+  });
+
+  /* Instagram and WhatsApp in-app browsers sometimes refuse the clipboard outright.
+     Silently sending someone to a blank Google box with nothing to paste is the worst
+     possible failure, so say so and let them copy by hand. */
+  const showCopyState = (copied) => {
+    $('sheetTitle').textContent = copied ? 'Copied. Three taps left.' : 'Copy this first';
+    $('copyFallback').classList.toggle('hidden', copied);
+    $('steps').classList.toggle('hidden', !copied);
+    if (!copied) {
+      $('fallbackText').value = $('reviewText').value.trim();
+      $('fallbackText').select();
+    }
+  };
+
+  /* ---------- handoff ---------- */
+  let jumpTimer = null;
+  const openSheet = (autoJump = true) => {
+    $('sheet').classList.add('on');
+    $('sheet').setAttribute('aria-hidden', 'false');
+    if (autoJump) jumpTimer = setTimeout(goToGoogle, 3200); // long enough to read the three steps
+  };
+  const closeSheet = () => {
+    clearTimeout(jumpTimer);
+    $('sheet').classList.remove('on');
+    $('sheet').setAttribute('aria-hidden', 'true');
+  };
+  const goToGoogle = () => {
+    clearTimeout(jumpTimer);
+    if (!state.cfg?.reviewUrl) return closeSheet();
+    state.posted = true;
+    // Same tab: window.open gets swallowed inside Instagram/WhatsApp in-app browsers.
+    location.href = state.cfg.reviewUrl;
+  };
+  $('openGoogle').addEventListener('click', goToGoogle);
+  $('sheetClose').addEventListener('click', () => { closeSheet(); showThanks(); });
+  $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) { closeSheet(); showThanks(); } });
+
+  /* ---------- coming back ---------- */
+  const showThanks = () => {
+    $('flow').classList.add('hidden');
+    $('dock').classList.remove('up');
+    $('thanks').classList.remove('hidden');
+  };
+  $('againBtn').addEventListener('click', () => {
+    const text = state.review || '';
+    if (!text) return;
+    copyNow(text);
+    $('againBtn').textContent = 'Copied ✓';
+    setTimeout(() => { location.href = state.cfg.reviewUrl; }, 600);
+  });
+
+  $('restartBtn').addEventListener('click', () => {
+    sessionStorage.removeItem(STORE_KEY);
+    location.href = location.pathname + location.search;
+  });
+
+  /* ---------- private path ---------- */
+  $('privateToggle').addEventListener('click', () => {
+    $('privateSection').classList.remove('hidden');
+    $('privateToggle').classList.add('hidden');
+    $('privateText').focus();
+  });
+  $('privateSend').addEventListener('click', async () => {
+    const btn = $('privateSend');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    await log('private', $('privateText').value.trim(), $('privateContact').value.trim());
+    $('thanksTitle').textContent = 'Thank you for telling us';
+    $('thanksBody').textContent = 'That went straight to the owner. Someone will look into it.';
+    showThanks();
+  });
+
+  /* ---------- counters ---------- */
+  const log = (event, message = '', contact = '') =>
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ event, loc: LOC, chips: [...state.picked], message, contact })
+    }).catch(() => {});
+
+  boot();
+})();
+</script>
+</body>
+</html>
