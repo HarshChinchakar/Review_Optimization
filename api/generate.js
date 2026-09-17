@@ -1,4 +1,4 @@
-import { getLocation, pickLength, pickVoice, pickAnchors, seoFor } from '../lib/business.js';
+import { getLocation, pickLength, pickVoice, pickPersona, pickAnchors, seoFor } from '../lib/business.js';
 import { json, readBody, clientIp, overLimit } from '../lib/http.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -33,52 +33,66 @@ const systemPrompt = (loc) => [
   'NEVER (these break the review and the profile)',
   '4. Never invent a fact: no prices or rent, no dates, no durations, no "I have been staying here for", no room or flat numbers, no staff or owner names, no comparisons to other PGs or landlords, no travel times or distances in minutes or kilometres.',
   '5. The only numbers you may ever write are ones that appear in the fact sheet. No other figure, in any form.',
-  '6. Do not claim to be a particular kind of resident - student, working professional, man, woman, newcomer - unless the taps say so. You do not know who is typing.',
+  '6. Never state who the reviewer is. Not their age, job, course, gender, how long they have lived here or where they came from. You do not know any of it about the person holding the phone, and it would be published under their name. See rule 16.',
   '7. If the resident wrote a note describing a problem, say it plainly in their words. Never soften it, never balance it away, never turn a complaint into praise.',
   '',
-  'SOUNDING LIKE A PERSON',
-  '8. Simple words, Indian English, the register of someone typing quickly on a phone. Contractions welcome.',
-  '9. Banned outright because they are the tells of a generated review: "nestled", "top-notch", "highly recommend to anyone looking for", "hassle-free", "state of the art", "peace of mind", "a home away from home", "worth every penny", "the icing on the cake", "look no further". No em dashes, no hyphen used as a pause, no hashtags, no emoji, no bullet points, no headings, no star ratings written out.',
-  '10. Do not open with "I recently", "I have been staying", "This is a great PG", or the business name. Vary how you begin.',
-  '11. Perfect balance is itself a tell. Real reviews lean on one thing the person cared about and mention the rest lightly. Let the review be uneven.',
-  '12. Mention the business name at most once, and only if it falls naturally. The area name likewise. In a short review, skip both.',
-  '13. Not every review needs a recommendation at the end. Most real ones just stop.',
+  'WRITING AS THE RESIDENT, NOT ABOUT THE BUILDING',
+  '8. Write in the first person, from inside living there. "I", "my", "we". You are describing your own experience of the place, not summarising what it offers.',
+  '   Wrong: "The place feels safe for women." That is how a listing describes a building.',
+  '   Right: "Coming back late has never been a worry for me."',
+  '   Wrong: "The 100 Mbps WiFi holds up for video calls and work from home."',
+  '   Right: "WiFi has not dropped on me during a call yet, which is all I needed."',
+  '9. Do not recite specifications. A resident says the internet is fast, not that it is 100 Mbps. Say a number only where a person genuinely would, which is almost never.',
+  '10. Never give every point the same weight in the same shape. One clause per feature, strung together, is a specification list and it is the single clearest sign a review was generated. Say something real about one or two things and let the rest be a passing mention or nothing at all.',
+  '11. Simple words, Indian English, the register of someone typing on a phone. Contractions throughout. Ordinary connectors like "and", "so", "but", not "additionally" or "moreover".',
+  '12. Banned outright because they are the tells of a generated review: "nestled", "top-notch", "highly recommend to anyone looking for", "hassle-free", "state of the art", "peace of mind", "a home away from home", "worth every penny", "the icing on the cake", "look no further", "the perfect blend", "ticks all the boxes". No em dashes, no hyphen used as a pause, no hashtags, no emoji, no bullet points, no headings, no star ratings written out.',
+  '13. Do not open with "I recently", "I have been staying", "This is a great PG", or the business name. Vary how you begin.',
+  '14. Mention the business name at most once, and only if it falls naturally. In a short review, skip it.',
+  '15. Not every review needs a recommendation at the end. Most real ones just stop.',
+  '16. You may be told roughly who is typing. That tells you HOW to write - the register, the vocabulary, the level of fuss - and never WHAT to write about. It adds no subject matter whatsoever, and it never becomes a stated fact: never say how long they have stayed, that they are new, that they just started working or studying, where they work or study, or why they moved. You do not know any of that about the person holding the phone.',
   '',
   'NAMING WHERE THIS IS',
-  '14. You may be given a local search anchor: a plain phrase naming what this place is and where it is. Treat it as a way of referring to the place inside a sentence that is already saying something. It is never a sentence of its own.',
-  '15. The anchor must sit inside a clause that makes a real point. It may never be appended after the review is finished, never stand as a trailing fragment, never follow a full stop at the end, and never be introduced by "It is a" or "This is a" as a closing line.',
+  '17. You may be given a local search anchor: a plain phrase naming what this place is and where it is. Treat it as a way of referring to the place inside a sentence that is already saying something. It is never a sentence of its own.',
+  '18. The anchor must sit inside a clause that makes a real point. It may never be appended after the review is finished, never stand as a trailing fragment, never follow a full stop at the end, and never be introduced by "It is a" or "This is a" as a closing line.',
   '   Wrong: "Rooms are cleaned daily and the staff are helpful. PG near Hinjewadi IT Park."',
   '   Wrong: "The people are nice. It is a PG near Aundh."',
-  '   Right: "Being a PG near Hinjewadi IT Park, the commute is the main reason I took it."',
+  '   Right: "I took this place mainly because it is a PG near Hinjewadi IT Park and the commute actually matters to me."',
   '   Right: "Hard to find a PG in Vishal Nagar where the cleaning actually happens every day."',
-  '16. Name at most three nearby places in the whole review, and only if a tap was about the location. Two is better than three. Listing Hinjewadi, Wakad, Baner, Pimple Saudagar, Aundh and Balewadi in a row is keyword listing even though every one of them is true, and it is the fastest way to get a review filtered. Name the ones that matter and move on.',
-  '17. If the anchor cannot be worked in that way, leave it out entirely. A review with no locality in it is completely fine and better than a bolted-on one. Use it once at most, and never repeat the locality anywhere else in the review.',
-  '18. Do not write "near me". Someone searching that phrase is not looking for it in your words, and it reads as planted.',
+  '19. Name at most three nearby places in the whole review, and only if a tap was about the location. Two is better than three. Listing Hinjewadi, Wakad, Baner, Pimple Saudagar, Aundh and Balewadi in a row is keyword listing even though every one of them is true, and it is the fastest way to get a review filtered. Name the ones that matter and move on.',
+  '20. If the anchor cannot be worked in that way, leave it out entirely. A review with no locality in it is completely fine and better than a bolted-on one. Use it once at most, and never repeat the locality anywhere else in the review.',
+  '21. Do not write "near me". Someone searching that phrase is not looking for it in your words, and it reads as planted.',
   '',
   'Write only the review text. No quotation marks around it, no preamble, no sign-off, no title, no JSON, no label, no explanation.'
 ].join('\n');
 
-const userPrompt = ({ loc, chips, note, length, angle, voice, shape, anchors, previous }) => {
+const userPrompt = ({ loc, note, length, angle, focus, rest, meaning, persona, voice, shape, anchors, previous }) => {
+  // Button labels are deliberately not sent. Shown alongside the meaning, they were lifted
+  // wholesale as the subject of the opening sentence — "Kitchen in flat lets me cook my own
+  // meals", "100 Mbps WiFi never drops" — which is a caption, not something a person says.
+  const say = (c) => `- ${meaning.get(c.id)}`;
   const lines = [
     `Business: ${loc.name}, ${loc.what} in ${loc.city}.`,
     '',
-    // The label is button text, not English — "Water & power" lands in the review ampersand and
-    // all if it is handed over as-is. The seo phrase is the part meant to be written from.
-    'What the resident tapped, and the wording each tap stands for:',
-    ...chips.map((c) => `- ${c.label.replace(/&/g, 'and')}: ${seoFor(c)}`),
-    'Those short names are button labels, not English. Write from the meaning, never copy a label.',
+    'This is what the review is actually about. Say something real about it, in your own words:',
+    ...focus.map(say),
+    rest.length ? '' : null,
+    rest.length ? 'They also tapped these. Mention one or two in passing if it flows, or leave them out altogether. Do not give them a clause each:' : null,
+    ...rest.map(say),
+    '',
+    'Those are notes on what they meant, not phrases to reuse. Put it in your own words.',
     '',
     note ? `The resident also typed: "${note}"` : 'The resident did not type anything extra.',
     '',
     `Length: ${length.hint}.`,
+    `Who is typing (steers what they notice and the words they use, never stated outright): ${persona.hint}`,
     `Voice: ${voice.hint}`,
     `Shape: ${shape}`,
     anchors.length
       ? `Local search anchor: "${anchors[0]}". Work it into a clause that is already making a point, or leave it out. Never as its own sentence and never tacked on at the end.`
       : 'No local search anchor this time. Do not name the locality at all unless one of their taps is about the location.',
-    `Their taps are the whole subject. Lead from "${angle.label.replace(/&/g, 'and')}".`,
-    'Nothing outside those taps may appear, including true things from the fact sheet they did not tap. If the length will not fill honestly, write a shorter review.'
-  ];
+    `Lead from this one: ${meaning.get(angle.id)}`,
+    'Nothing outside their taps may appear, including true things from the fact sheet they did not tap. If the length will not fill honestly, write a shorter review rather than padding it.'
+  ].filter((l) => l !== null);
   if (previous) {
     lines.push(
       '',
@@ -187,11 +201,31 @@ export default async function handler(req, res) {
   const length = pickLength(chips.length);
   // The opening facet is drawn from what they actually tapped — picking it from a global list
   // made the model open with move-in or rent claims nobody had selected.
-  const angle = chips[Math.floor(Math.random() * chips.length)];
-  // Voice and shape vary independently of length, so the profile doesn't fill with reviews that
-  // differ only in word count. Anchors carry the locality wording that local search matches on.
+  // Voice, persona and shape vary independently of length, so the profile doesn't fill with
+  // reviews that differ only in word count. Anchors carry the wording local search matches on.
   const { voice, shape } = pickVoice();
+  const persona = pickPersona();
   const anchors = pickAnchors(length.key);
+
+  /**
+   * Which taps actually get written about.
+   *
+   * Covering every tap in order is what made the reviews read as brochures: six taps became six
+   * even clauses, one per feature, which is a specification list rather than anything a person
+   * would type. Real reviews lean hard on the one or two things that mattered and let the rest go.
+   *
+   * So the taps are split here rather than in the prompt. One or two carry the review; the rest
+   * are available but explicitly droppable. Nothing outside the resident's own taps is ever in
+   * either group, so this narrows the review without inventing anything.
+   */
+  const shuffled = [...chips].sort(() => Math.random() - 0.5);
+  // Even two taps became one clause each. Most of the time one of them carries the review.
+  const focusCount = chips.length === 1 ? 1 : (Math.random() < 0.6 ? 1 : 2);
+  const focus = shuffled.slice(0, focusCount);
+  const rest = shuffled.slice(focusCount);
+  const angle = focus[0];
+  // Resolved once so a rotating seoPool gives the same phrasing in the list and in the lead line.
+  const meaning = new Map(chips.map((c) => [c.id, seoFor(c)]));
 
   // One overall budget for the whole thing (Vercel's function limit is 30s), with a
   // shorter timeout on each individual attempt. A single controller spanning the retries
@@ -220,7 +254,7 @@ export default async function handler(req, res) {
           ...(model.includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
           messages: [
             { role: 'system', content: systemPrompt(loc) },
-            { role: 'user', content: userPrompt({ loc, chips, note, length, angle, voice, shape, anchors, previous }) }
+            { role: 'user', content: userPrompt({ loc, note, length, angle, focus, rest, meaning, persona, voice, shape, anchors, previous }) }
           ]
         })
       });
@@ -284,7 +318,7 @@ export default async function handler(req, res) {
 
     if (!review) return json(res, 502, { error: 'Could not write the review just now. Try again.' });
 
-    console.log(JSON.stringify({ at: new Date().toISOString(), event: 'generated', loc: loc.key, model: data.model, chips: chips.map(c => c.id), length: length.key, voice: voice.key, anchors, chars: review.length }));
+    console.log(JSON.stringify({ at: new Date().toISOString(), event: 'generated', loc: loc.key, model: data.model, chips: chips.map(c => c.id), focus: focus.map(c => c.id), length: length.key, voice: voice.key, persona: persona.key, anchors, chars: review.length }));
     return json(res, 200, { review, length: length.key });
   } catch (err) {
     console.error('[generate]', err.name, err.message);

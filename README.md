@@ -160,6 +160,17 @@ false statement published under a resident's name.
 were deliberately left out for exactly this reason. If you add an amenity later, add the fact and the chip
 together.
 
+### One rule if you edit the personas
+
+`PERSONAS` in [lib/business.js](lib/business.js) says **how** each kind of resident types — never what they
+would mention. That restriction is the whole design, and it was learned the hard way: an earlier version
+described what each persona *notices* ("the internet, light and air, somewhere to sit that is not the bed")
+and the model read it as a content brief. Residents who had tapped only the safety chips got reviews about
+the WiFi and the common room.
+
+**A persona that names a feature is a persona that will smuggle it in.** Keep them to register, vocabulary
+and attitude.
+
 ---
 
 ## How the local-search wording works
@@ -212,8 +223,15 @@ clear instructions is the whole of what is possible.
 - **Length is capped by how much the resident actually gave us.** One to three taps can never become a
   70-90 word review. That cap is not cosmetic: asking for eighty words off three taps is precisely what had
   the model padding the review out with true-but-untapped facts, which is fabrication with extra steps.
-- **Voice is randomised independently of length** — seven registers, five structural shapes. Varying only
-  the word count still produced twenty reviews that read like one person with twenty accounts.
+- **Voice is randomised independently of length** — eight registers, five structural shapes, five personas.
+  Varying only the word count still produced twenty reviews that read like one person with twenty accounts.
+- **It writes as the resident, not about the building.** "The place feels safe for women" is how a listing
+  describes a property; "coming back late has never been a worry for me" is how someone who lives there
+  talks. First person, no specifications recited — a resident says the wifi is fast, not that it is 100 Mbps.
+- **Only one or two taps actually carry the review.** Covering every tap in order produced six even clauses,
+  one per feature, which is a spec sheet rather than anything a person would type. The taps are split in
+  code: one or two get something real said about them, the rest are explicitly droppable. Five taps can
+  honestly become one line.
 - The opening facet is drawn from the resident's own taps, so the review never leads with something they
   didn't say.
 - Two text guards run on every response, because the prompt alone did not hold: `scrubTells()` rewrites the
