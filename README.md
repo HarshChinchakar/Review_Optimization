@@ -40,8 +40,8 @@ else happens, and the handoff sheet tells them the exact gesture to use when the
 | # | What | Why | Status |
 |---|---|---|---|
 | 0 | *(reference)* Paste the `g.page/r/…/review` link into a browser once and copy **where it lands** — `search.google.com/local/writereview?placeid=…`. Use that. Android app-links hand `g.page` straight to the Maps app, which drops people on the profile instead of the review box | Keeps the resident on google.com with a clipboard they can actually paste | ✅ done |
-| 1 | **Who GVC Executive PG is for** — men, mixed, or women too? | Address, phone and rent band are in. But the chip *tone* depends on the audience: if women stay there too, the safety chips belong on it as well | ⚠️ before printing the QR |
-| 2 | **Amenity truth-check** — meals, WiFi, AC, hot water, power backup, laundry, housekeeping, sharing options, gate timing, CCTV, parking | **Every chip must be true.** A chip for something you don't offer turns a real review into a false claim | ⚠️ do this before going live |
+| 1 | **Who GVC Executive PG is for** | Answered: women stay there, so "Safe for women" and the caretaker / biometric / daily-owner-check chips are all in | ✅ done |
+| 2 | **Amenity truth-check** | Done — `facts[]` and the chips now carry only the confirmed feature list. Meals, AC, hot water and laundry service were **removed**, since residents cook in their own flat kitchen. Re-check this whenever something changes | ✅ done |
 | 3 | Your Vercel account (free tier is enough) | Deployment | — |
 | 4 | A Groq key that isn't the throwaway one | The key in `.env` right now is the temporary one you shared, and you said you're revoking it | ⚠️ |
 
@@ -129,8 +129,8 @@ Bugs it has already caught: 42px tap targets, a review box that collapsed to zer
 Everything business-specific is in **[lib/business.js](lib/business.js)**. Each chip is two things:
 
 ```js
-{ id: 'wifi', label: 'Fast WiFi', emoji: '📶', seo: 'high-speed WiFi, reliable for work from home' }
-//              ^ what the resident reads            ^ what the AI is told the tap means
+{ id: 'wifi', label: '100 Mbps WiFi', emoji: '📶', seo: '100 Mbps WiFi, holds up for work from home and video calls' }
+//              ^ what the resident reads               ^ what the AI is told the tap means
 ```
 
 That split is the whole trick. The resident sees three human words and taps instantly; the model receives the
@@ -140,8 +140,49 @@ search-shaped phrase and weaves it in naturally. Nobody is asked to read a keywo
   starts at the top and attention decays fast.
 - `pool[]` — shuffled and sampled (8 of them) per visit, so two residents rarely tap the same combination and
   the profile doesn't fill up with reviews that read the same.
+- `seoPool[]` instead of `seo` on a chip — rotate between several true phrasings of the same point. The
+  `location` chip uses this to name a different work hub each time rather than reciting all six.
 
 Edit, redeploy, reprint nothing — the QR URL doesn't change.
+
+### `facts[]` — the boundary, and the reason nothing gets invented
+
+`facts[]` is the complete list of what is actually true about this PG. It goes to the model on **every**
+request, and it is the only thing the model is allowed to know.
+
+It is not a list of things to write about. The review still only covers the chips the resident tapped —
+`facts[]` exists so that when the model reaches for a detail to round out a sentence, the only details
+within reach are real ones. Without it the model reaches for what it knows about PGs generally: a mess,
+AC rooms, laundry service, a rent figure. None of those are true here, and a review claiming them is a
+false statement published under a resident's name.
+
+**So: anything you have not confirmed does not go in `facts[]`.** Meals, AC, hot water and laundry service
+were deliberately left out for exactly this reason. If you add an amenity later, add the fact and the chip
+together.
+
+---
+
+## How the local-search wording works
+
+What ranks a profile for *"pg near me"* is not the phrase "near me" — Google resolves that from the
+searcher's own GPS. What it matches on is **category + locality**: a profile whose reviews say "PG in
+Vishal Nagar" or "PG near Hinjewadi" is the one it can confidently return for "pg near me", "best pg near
+me" and "pg near hinjewadi" alike.
+
+`SEARCH_ANCHORS` in [lib/business.js](lib/business.js) holds those phrasings. One is offered per review,
+and only to **about 40%** of them. That rate is deliberate:
+
+> Coverage accumulates across many reviews. Twenty reviews each naming the locality once is what ranks.
+> One review naming it five times is keyword stuffing, and it gets the review filtered and the profile
+> looked at. A review with no locality in it at all is doing its job too.
+
+Three defences keep it from reading as planted, and all three exist because the model did each of these
+before they were added:
+
+1. The prompt forbids the anchor as a standalone sentence, with worked right/wrong examples.
+2. `stripStuffedTail()` in [api/generate.js](api/generate.js) deletes a final sentence that is nothing but
+   a place label — the `... staff are helpful. PG near Hinjewadi IT Park.` shape.
+3. At most three place names may appear in one review, and the `location` chip rotates which hubs it names.
 
 ---
 
@@ -165,11 +206,19 @@ clear instructions is the whole of what is possible.
 ## How the writing stays honest (and why that's also what makes it work)
 
 - The model is only allowed to expand points the resident actually tapped. No prices, dates, staff names,
-  durations, or embellishments around a tapped point.
+  durations, or embellishments around a tapped point — and nothing outside `facts[]` even exists to it.
 - Length is randomised — ~35% short, ~45% medium, ~20% detailed — because a profile where every new review is
   the same shape looks manufactured to readers and to Google.
+- **Length is capped by how much the resident actually gave us.** One to three taps can never become a
+  70-90 word review. That cap is not cosmetic: asking for eighty words off three taps is precisely what had
+  the model padding the review out with true-but-untapped facts, which is fabrication with extra steps.
+- **Voice is randomised independently of length** — seven registers, five structural shapes. Varying only
+  the word count still produced twenty reviews that read like one person with twenty accounts.
 - The opening facet is drawn from the resident's own taps, so the review never leads with something they
   didn't say.
+- Two text guards run on every response, because the prompt alone did not hold: `scrubTells()` rewrites the
+  giveaway phrases the model kept reaching for ("hassle-free"), and `dropIncompleteTail()` trims a review
+  that was cut off mid-clause rather than putting a fragment on someone's clipboard.
 - The text is fully editable before posting, and it posts from their account. It is their review.
 - **No review gating.** The private-feedback link is visible to everyone at all times and never replaces the
   public path. Routing unhappy customers away from Google violates Google's review policy — most competitors

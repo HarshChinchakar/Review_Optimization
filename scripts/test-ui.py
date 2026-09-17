@@ -6,11 +6,11 @@ Full browser test for the review page — Playwright driving real Chromium at ph
     npm test                     # in another
 
 Checks behaviour AND rendering: layout at two phone sizes, colour contrast, clipping,
-overflow, the clipboard, the handoff sheet, both properties, light and dark, the API
-contract, validation, rate limiting, and the anti-fabrication rules on the generated text.
+overflow, the clipboard, the handoff sheet, light and dark, the API contract, validation,
+rate limiting, and the anti-fabrication rules on the generated text.
 Screenshots land in .screens/ for eyeballing.
 """
-import json, os, re, sys, time, unicodedata, urllib.request, urllib.error
+import json, os, re, subprocess, sys, time, unicodedata, urllib.request, urllib.error
 from playwright.sync_api import sync_playwright
 
 BASE = "http://localhost:3000"
@@ -121,7 +121,7 @@ check("a stray ?loc still serves Executive",
 check("a hostile ?loc falls back rather than erroring",
       api("/api/config?loc=../../etc/passwd")[1]["name"] == "GVC Executive PG")
 check("priority chips lead, in declared order",
-      [c["id"] for c in cfg["chips"][:6]] == ["furnished", "wifi", "location", "clean", "privacy", "value"],
+      [c["id"] for c in cfg["chips"][:6]] == ["location", "clean", "wifi", "safe", "nohidden", "kitchen"],
       [c["id"] for c in cfg["chips"][:6]])
 pools = [tuple(c["id"] for c in api("/api/config")[1]["chips"][6:]) for _ in range(6)]
 check("secondary pool shuffles per visit", len(set(pools)) > 1, f"{len(set(pools))} orders in 6 calls")
@@ -133,7 +133,7 @@ check("empty chip list rejected", api("/api/generate", {"chips": []},
 check("unknown chip ids rejected", api("/api/generate", {"chips": ["../../etc"]},
       {"x-forwarded-for": next_ip()})[0] == 400)
 check("another property's chip ids are not accepted here",
-      api("/api/generate", {"chips": ["safe", "parents"]},
+      api("/api/generate", {"chips": ["parents", "girls", "commute"]},
           {"x-forwarded-for": next_ip()})[0] == 400)
 codes = [api("/api/generate", {"chips": []}, {"x-forwarded-for": "203.0.113.9"})[0]
          for _ in range(14)]
@@ -143,7 +143,7 @@ check("a different IP is unaffected",
 
 section("3. Generated text obeys the anti-fabrication rules")
 BANNED = ["—", "–", "‑", "#", "highly recommend to anyone", "nestled", "top-notch", "top notch"]
-for chips in (["furnished", "clean"], ["owner"], ["furnished", "clean", "owner", "location"]):
+for chips in (["kitchen", "clean"], ["staff"], ["safe", "clean", "staff", "location"]):
     body = gen(chips)
     if body is None: continue
     t = body["review"]
@@ -157,22 +157,87 @@ for chips in (["furnished", "clean"], ["owner"], ["furnished", "clean", "owner",
     check("  no bullets or headings", not re.search(r"(^|\n)\s*([-*•]|#{1,6})\s", t))
     time.sleep(2)
 
-one = gen(["owner"])
+one = gen(["staff"])
 if one: check("a single tap stays short instead of being padded out", len(one["review"]) < 320, len(one["review"]))
 
 variants, lengths = set(), []
 for _ in range(6):
-    b = gen(["privacy", "clean", "owner", "location"])   # 4 chips = the full short/medium/long mix
+    b = gen(["safe", "clean", "staff", "location"])      # 4 chips = the full short/medium/long mix
     if b: variants.add(b["review"]); lengths.append(b["length"])
     time.sleep(2)
 if len(variants) >= 2:
     check("same chips give different wording each time", len(variants) == len(lengths), f"{len(variants)}/{len(lengths)} unique")
     check("length varies across reviews", len(set(lengths)) > 1, lengths)
 
-nb = gen(["clean"], "the geyser on the 2nd floor has been broken for a week")
+nb = gen(["clean"], "the lift has been out of order for a week")
 if nb:
     check("a complaint in the note survives into the review",
-          any(w in nb["review"].lower() for w in ("geyser", "hot water", "broken", "week")), nb["review"][:120])
+          any(w in nb["review"].lower() for w in ("lift", "out of order", "broken", "week")), nb["review"][:120])
+
+section("4. The review stays inside what is actually true here")
+# Amenities this PG does not have. The model knows them as generic PG facts, which is exactly
+# why they have to be tested for rather than assumed away.
+ABSENT = ["mess", "tiffin", "meals included", "food included", " ac ", "air conditioning",
+          "geyser", "hot water", "laundry service", "ironing", "brokerage", "no deposit",
+          "curfew", "double sharing", "triple sharing"]
+LOCALITIES = ["vishal nagar", "pimple nilakh", "hinjewadi", "wakad", "baner",
+              "pimple saudagar", "aundh", "balewadi", "new dp road"]
+# A final sentence that is nothing but a place label - the keyword-stuffing shape.
+STUFFED_TAIL = re.compile(
+    r"(?:^|[.!?])\s*(?:it'?s |it is |this is |that'?s )?(?:a |an |the )?"
+    r"(?:best |good |nice |top |executive )?(?:pg|paying guest(?: accommodation)?|hostel)"
+    r"(?:\s+(?:in|near|at|around|on)\s+[A-Za-z0-9 ,.'-]{2,40})?\s*[.!?]?\s*$", re.I)
+
+scanned = []
+for chips in (["location", "transport", "best"], ["kitchen", "shops"],
+              ["safe", "security", "ownercheck"], ["nohidden", "staff", "fixes"]):
+    b = gen(chips)
+    if b is None: continue
+    t = b["review"]; low = " " + t.lower() + " "
+    scanned.append(t)
+    hits = [w for w in ABSENT if w in low]
+    check(f"{chips} claims nothing this PG does not have", not hits, hits)
+    named = [p for p in LOCALITIES if p in low]
+    # Two or three read naturally ("close to Hinjewadi and Wakad"); a row of six is stuffing.
+    check(f"{chips} names at most three nearby places", len(named) <= 3, named)
+    check(f"{chips} does not end on a bare place label", not STUFFED_TAIL.search(t), t[-60:])
+    check(f"{chips} avoids the ampersand of the button labels", "&" not in t)
+    check(f"{chips} ends on a finished sentence", t.rstrip()[-1:] in ".!?" or len(t.split()) < 25, t[-40:])
+    time.sleep(2)
+
+if len(scanned) >= 2:
+    check("no two reviews open with the same three words",
+          len({" ".join(t.split()[:3]).lower() for t in scanned}) == len(scanned),
+          [" ".join(t.split()[:3]) for t in scanned])
+
+section("5. Text guards, unit level")
+# These run in-process against the real exports, so the guards are tested directly rather than
+# only through whatever the model happened to produce this run.
+guard = subprocess.run(
+    ["node", "--input-type=module", "-e", """
+    import { stripStuffedTail as s, scrubTells as c, dropIncompleteTail as d } from './api/generate.js';
+    const out = [];
+    const t = (name, got, want) => out.push([name, got === want, `got ${JSON.stringify(got)}`]);
+    t('strips a bare trailing place label', s('Rooms cleaned daily. PG near Hinjewadi IT Park.'), 'Rooms cleaned daily.');
+    t('strips an "it is a" place label',    s('People are nice. It is a PG near Aundh.'), 'People are nice.');
+    t('strips a trailing opinion label',    s('Good place. Best PG in Vishal Nagar.'), 'Good place.');
+    t('keeps a locality inside a real clause', s('Hard to find a PG in Vishal Nagar where cleaning happens daily.'),
+      'Hard to find a PG in Vishal Nagar where cleaning happens daily.');
+    t('keeps a sentence that says something', s('Cleaning is daily. It is a PG in Vishal Nagar that keeps its word.'),
+      'Cleaning is daily. It is a PG in Vishal Nagar that keeps its word.');
+    t('keeps an ordinary ending',           s('Rooms cleaned daily. The WiFi is solid.'), 'Rooms cleaned daily. The WiFi is solid.');
+    t('rewrites hassle-free',               c('A safe, hassle-free place.'), 'A safe, easy place.');
+    t('rewrites the button ampersand',      c('Water & power are reliable.'), 'Water and power are reliable.');
+    t('drops a cut-off trailing clause',    d('Good overall. 100 Mbps WiFi'), 'Good overall.');
+    t('leaves a finished review alone',     d('Good overall. WiFi is fast.'), 'Good overall. WiFi is fast.');
+    console.log(JSON.stringify(out));
+    """],
+    cwd=os.path.join(os.path.dirname(__file__), ".."), capture_output=True, text=True)
+if guard.returncode != 0:
+    check("text guards load", False, guard.stderr.strip()[:200])
+else:
+    for name, ok, detail in json.loads(guard.stdout):
+        check(name, ok, detail)
 
 print("\n  ...pausing 75s to let the Groq free-tier token budget refill before the browser run")
 time.sleep(75)
@@ -188,7 +253,7 @@ with sync_playwright() as pw:
                               extra_http_headers={"x-forwarded-for": next_ip()})
     P = Page(ctx); p = P.page
 
-    section("4. Landing screen renders (390x844)")
+    section("6. Landing screen renders (390x844)")
     p.goto(f"{BASE}/"); p.wait_for_selector(".chip"); time.sleep(.5)
     p.screenshot(path=f"{SHOTS}/01-landing.png", full_page=True)
     check("no console errors on load", P.errors == [], P.errors)
@@ -219,7 +284,7 @@ with sync_playwright() as pw:
     check("note field starts hidden", not p.is_visible("#note"))
     check("private path visible to everyone from the start", p.is_visible("#privateToggle"))
 
-    section("5. Colour and contrast")
+    section("7. Colour and contrast")
     body_bg = style(p, "body", "backgroundColor")
     check("body has an explicit warm paper background", body_bg == "rgb(247, 245, 241)", body_bg)
     check("ink on paper meets WCAG AA (>=4.5)",
@@ -240,7 +305,7 @@ with sync_playwright() as pw:
     check("headings use tightened tracking, not defaults",
           style(p, ".name", "letterSpacing") not in ("normal", "0px"), style(p, ".name", "letterSpacing"))
 
-    section("6. Selection behaviour")
+    section("8. Selection behaviour")
     chip = p.locator(".chip")
     chip.nth(0).click(); time.sleep(.3)
     check("tapped chip flips aria-pressed", chip.nth(0).get_attribute("aria-pressed") == "true")
@@ -263,7 +328,7 @@ with sync_playwright() as pw:
     check("note capped at 300 chars", p.get_attribute("#note", "maxlength") == "300")
     check("note is 16px so iOS won't zoom the page", style(p, "#note", "fontSize") == "16px")
 
-    section("7. Generation")
+    section("9. Generation")
     p.click("#primaryBtn"); time.sleep(.4)
     check("wait is narrated, not a bare spinner", "Writing" in p.inner_text("#primaryBtn"),
           p.inner_text("#primaryBtn"))
@@ -315,7 +380,7 @@ with sync_playwright() as pw:
     check("changing chips after generating explains what to do",
           "Say it differently" in p.inner_text("#dockHint"), p.inner_text("#dockHint"))
 
-    section("8. Clipboard and handoff")
+    section("10. Clipboard and handoff")
     final = p.input_value("#reviewText")
     p.click("#primaryBtn"); time.sleep(1.0)
     clip = p.evaluate("navigator.clipboard.readText()")
@@ -355,7 +420,7 @@ with sync_playwright() as pw:
     check("'copy again' offered on return", p.is_visible("#againBtn"))
     check("'start over' offered", p.is_visible("#restartBtn"))
 
-    section("9. Returning to the page")
+    section("11. Returning to the page")
     p.goto(f"{BASE}/"); time.sleep(1.2)
     check("returning within 30 min restores the review", p.is_visible("#thanks"))
     # The QR is the bare domain now, but a hand-typed or stale ?loc must never change the property.
@@ -377,7 +442,7 @@ with sync_playwright() as pw:
     p.screenshot(path=f"{SHOTS}/06-executive.png", full_page=True)
     check("no overflow after restart", not overflows(p))
 
-    section("10. Private feedback path")
+    section("12. Private feedback path")
     p.click("#privateToggle"); time.sleep(.4)
     p.fill("#privateText", "Geyser on the 2nd floor has been off for a week")
     p.fill("#privateContact", "9876500000")
@@ -387,7 +452,7 @@ with sync_playwright() as pw:
           p.inner_text("#thanksTitle") == "Thank you for telling us")
     check("private copy names the owner, not Google", "owner" in p.inner_text("#thanksBody").lower())
 
-    section("11. Security")
+    section("13. Security")
     src = p.content()
     check("no Groq key in the page source", "gsk_" not in src)
     check("no API key reachable from the browser at all",
@@ -396,7 +461,7 @@ with sync_playwright() as pw:
     ctx.close()
 
     # ── dark ─────────────────────────────────────────────────────────────────
-    section("12. Dark mode")
+    section("14. Dark mode")
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, color_scheme="dark",
                               device_scale_factor=2, is_mobile=True, has_touch=True,
                               extra_http_headers={"x-forwarded-for": next_ip()})
@@ -424,7 +489,7 @@ with sync_playwright() as pw:
     ctx.close()
 
     # ── small cheap android ──────────────────────────────────────────────────
-    section("13. Small cheap phone (360x640)")
+    section("15. Small cheap phone (360x640)")
     ctx = browser.new_context(viewport={"width": 360, "height": 640}, is_mobile=True, has_touch=True,
                               extra_http_headers={"x-forwarded-for": next_ip()})
     S = Page(ctx); p = S.page
