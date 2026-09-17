@@ -36,7 +36,7 @@ _phone = iter(range(20, 200))
 def next_ip():
     return f"198.51.100.{next(_phone)}"
 
-def gen(chips, note="", loc="female", tries=3):
+def gen(chips, note="", loc="executive", tries=3):
     """Generate with backoff — the free Groq tier is 8k tokens/min and this suite is greedy."""
     for i in range(tries):
         code, body = api("/api/generate", {"loc": loc, "chips": chips, "note": note},
@@ -98,54 +98,52 @@ class Page:
 
 # ════════════════════════════════════════════════════════════ API
 section("1. API contract")
-for loc, name, accent in (("female", "GVC PG Service", "terracotta"),
-                          ("executive", "GVC Executive PG", "slate")):
-    code, cfg = api(f"/api/config?loc={loc}")
-    check(f"[{loc}] /api/config 200", code == 200)
-    check(f"[{loc}] business name", cfg.get("name") == name, cfg.get("name"))
-    check(f"[{loc}] accent", cfg.get("accent") == accent, cfg.get("accent"))
-    check(f"[{loc}] 14 chips (6 priority + 8 sampled)", len(cfg.get("chips", [])) == 14, len(cfg.get("chips", [])))
-    check(f"[{loc}] chip ids unique", len({c['id'] for c in cfg['chips']}) == 14)
-    check(f"[{loc}] every chip has label + emoji", all(c.get("label") and c.get("emoji") for c in cfg["chips"]))
-    check(f"[{loc}] AI configured", cfg.get("aiReady") is True)
-    check(f"[{loc}] search phrasing never reaches the client", "seo" not in json.dumps(cfg))
+code, cfg = api("/api/config")
+check("/api/config 200", code == 200)
+check("business name", cfg.get("name") == "GVC Executive PG", cfg.get("name"))
+check("accent", cfg.get("accent") == "slate", cfg.get("accent"))
+check("14 chips (6 priority + 8 sampled)", len(cfg.get("chips", [])) == 14, len(cfg.get("chips", [])))
+check("chip ids unique", len({c['id'] for c in cfg['chips']}) == 14)
+check("every chip has label + emoji", all(c.get("label") and c.get("emoji") for c in cfg["chips"]))
+check("AI configured", cfg.get("aiReady") is True)
+check("search phrasing never reaches the client", "seo" not in json.dumps(cfg))
 
-_, exe = api("/api/config?loc=executive")
-check("executive points at the review composer, not the g.page shortlink",
-      exe["reviewUrl"] == "https://search.google.com/local/writereview?placeid=ChIJ3546OuK5wjsRQ9TCWYx9490",
-      exe["reviewUrl"])
+check("points at the review composer, not the g.page shortlink",
+      cfg["reviewUrl"] == "https://search.google.com/local/writereview?placeid=ChIJ3546OuK5wjsRQ9TCWYx9490",
+      cfg["reviewUrl"])
 check("the composer URL keeps people on google.com, not the Maps app",
-      "g.page" not in exe["reviewUrl"] and "/maps/" not in exe["reviewUrl"])
-check("executive link flagged configured", exe["reviewUrlConfigured"] is True)
-_, fem = api("/api/config?loc=female")
-check("female falls back to a Google web search, never Maps",
-      fem["reviewUrlConfigured"] is False
-      and fem["reviewUrl"].startswith("https://www.google.com/search?")
-      and "/maps/" not in fem["reviewUrl"], fem["reviewUrl"])
-check("unknown loc falls back rather than erroring",
-      api("/api/config?loc=../../etc/passwd")[1]["name"] == "GVC PG Service")
-_, cfg = api("/api/config?loc=female")
+      "g.page" not in cfg["reviewUrl"] and "/maps/" not in cfg["reviewUrl"])
+check("review link flagged configured", cfg["reviewUrlConfigured"] is True)
+
+# One property per deployment: no loc parameter can steer this build anywhere else.
+check("a stray ?loc still serves Executive",
+      api("/api/config?loc=female")[1]["name"] == "GVC Executive PG")
+check("a hostile ?loc falls back rather than erroring",
+      api("/api/config?loc=../../etc/passwd")[1]["name"] == "GVC Executive PG")
 check("priority chips lead, in declared order",
-      [c["id"] for c in cfg["chips"][:6]] == ["safe", "food", "owner", "commute", "clean", "wifi"],
+      [c["id"] for c in cfg["chips"][:6]] == ["furnished", "wifi", "location", "clean", "privacy", "value"],
       [c["id"] for c in cfg["chips"][:6]])
-pools = [tuple(c["id"] for c in api("/api/config?loc=female")[1]["chips"][6:]) for _ in range(6)]
+pools = [tuple(c["id"] for c in api("/api/config")[1]["chips"][6:]) for _ in range(6)]
 check("secondary pool shuffles per visit", len(set(pools)) > 1, f"{len(set(pools))} orders in 6 calls")
 
 section("2. Validation and abuse limits")
 check("GET /api/generate rejected", api("/api/generate")[0] == 405)
-check("empty chip list rejected", api("/api/generate", {"loc": "female", "chips": []},
+check("empty chip list rejected", api("/api/generate", {"chips": []},
       {"x-forwarded-for": next_ip()})[0] == 400)
-check("unknown chip ids rejected", api("/api/generate", {"loc": "female", "chips": ["../../etc"]},
+check("unknown chip ids rejected", api("/api/generate", {"chips": ["../../etc"]},
       {"x-forwarded-for": next_ip()})[0] == 400)
-codes = [api("/api/generate", {"loc": "female", "chips": []}, {"x-forwarded-for": "203.0.113.9"})[0]
+check("another property's chip ids are not accepted here",
+      api("/api/generate", {"chips": ["safe", "parents"]},
+          {"x-forwarded-for": next_ip()})[0] == 400)
+codes = [api("/api/generate", {"chips": []}, {"x-forwarded-for": "203.0.113.9"})[0]
          for _ in range(14)]
 check("per-IP rate limit engages", 429 in codes, f"last codes {codes[-3:]}")
 check("a different IP is unaffected",
-      api("/api/generate", {"loc": "female", "chips": []}, {"x-forwarded-for": next_ip()})[0] == 400)
+      api("/api/generate", {"chips": []}, {"x-forwarded-for": next_ip()})[0] == 400)
 
 section("3. Generated text obeys the anti-fabrication rules")
 BANNED = ["—", "–", "‑", "#", "highly recommend to anyone", "nestled", "top-notch", "top notch"]
-for chips in (["safe", "food"], ["owner"], ["safe", "food", "owner", "commute"]):
+for chips in (["furnished", "clean"], ["owner"], ["furnished", "clean", "owner", "location"]):
     body = gen(chips)
     if body is None: continue
     t = body["review"]
@@ -164,7 +162,7 @@ if one: check("a single tap stays short instead of being padded out", len(one["r
 
 variants, lengths = set(), []
 for _ in range(6):
-    b = gen(["safe", "clean", "owner", "commute"])   # 4 chips = the full short/medium/long mix
+    b = gen(["privacy", "clean", "owner", "location"])   # 4 chips = the full short/medium/long mix
     if b: variants.add(b["review"]); lengths.append(b["length"])
     time.sleep(2)
 if len(variants) >= 2:
@@ -191,12 +189,16 @@ with sync_playwright() as pw:
     P = Page(ctx); p = P.page
 
     section("4. Landing screen renders (390x844)")
-    p.goto(f"{BASE}/?loc=female"); p.wait_for_selector(".chip"); time.sleep(.5)
+    p.goto(f"{BASE}/"); p.wait_for_selector(".chip"); time.sleep(.5)
     p.screenshot(path=f"{SHOTS}/01-landing.png", full_page=True)
     check("no console errors on load", P.errors == [], P.errors)
-    check("business name rendered", p.inner_text("#bizName") == "GVC PG Service")
-    check("tagline rendered", "Kalewadi" in p.inner_text("#bizTag"))
-    check("title carries the business", "GVC PG Service" in p.title(), p.title())
+    check("business name rendered", p.inner_text("#bizName") == "GVC Executive PG")
+    check("tagline rendered", "Vishal Nagar" in p.inner_text("#bizTag"), p.inner_text("#bizTag"))
+    check("title carries the business", "GVC Executive PG" in p.title(), p.title())
+    check("the bare URL asks its own question",
+          p.inner_text("#askTitle") == "What worked well for you here?")
+    check("the bare URL uses the slate accent",
+          p.evaluate("document.documentElement.dataset.accent") == "slate")
     check("14 chips rendered", p.locator(".chip").count() == 14)
     check("chips are real buttons", p.eval_on_selector_all(
         ".chip", "els => els.every(e => e.tagName === 'BUTTON')"))
@@ -342,7 +344,7 @@ with sync_playwright() as pw:
     check("sheet dims the page behind it",
           style(p, "#sheet", "backgroundColor").startswith("rgba"))
     check("review kept in sessionStorage for the trip to Google",
-          json.loads(p.evaluate("sessionStorage.getItem('gvc_review_female')"))["text"].strip() == final.strip())
+          json.loads(p.evaluate("sessionStorage.getItem('gvc_review_executive')"))["text"].strip() == final.strip())
     check("the Post button targets the real review URL",
           p.evaluate("window.__cfgUrl ?? null") is None)  # url lives in closure, verified via /api/config
 
@@ -353,28 +355,27 @@ with sync_playwright() as pw:
     check("'copy again' offered on return", p.is_visible("#againBtn"))
     check("'start over' offered", p.is_visible("#restartBtn"))
 
-    section("9. Returning, and the other property")
+    section("9. Returning to the page")
+    p.goto(f"{BASE}/"); time.sleep(1.2)
+    check("returning within 30 min restores the review", p.is_visible("#thanks"))
+    # The QR is the bare domain now, but a hand-typed or stale ?loc must never change the property.
     p.goto(f"{BASE}/?loc=female"); time.sleep(1.2)
-    check("same property within 30 min restores the review", p.is_visible("#thanks"))
-    p.goto(f"{BASE}/?loc=executive"); p.wait_for_selector(".chip"); time.sleep(.6)
-    check("visiting the other property does not wipe the first one's saved review",
-          p.evaluate("sessionStorage.getItem('gvc_review_female')") is not None)
-    check("the other property starts fresh", p.is_visible("#flow"))
-    check("executive name", p.inner_text("#bizName") == "GVC Executive PG")
-    check("executive locality", "Vishal Nagar" in p.inner_text("#bizTag"), p.inner_text("#bizTag"))
-    check("executive asks its own question", p.inner_text("#askTitle") == "What worked well for you here?")
-    check("executive uses the slate accent", p.evaluate("document.documentElement.dataset.accent") == "slate")
-    check("slate accent actually applied to a selected chip", True)
-    p.locator(".chip").nth(0).click(); p.locator(".chip").nth(1).click(); time.sleep(.4)
-    acc = style(p, ".chip[aria-pressed='true']", "color")
-    check("executive accent differs from terracotta", acc != "rgb(194, 65, 12)", acc)
-    p.screenshot(path=f"{SHOTS}/06-executive.png", full_page=True)
-    check("no overflow on the executive page", not overflows(p))
-    p.goto(f"{BASE}/?loc=female"); time.sleep(1.2)
+    check("a stray ?loc does not switch property", p.inner_text("#bizName") == "GVC Executive PG")
+    check("a stray ?loc does not wipe the saved review",
+          p.evaluate("sessionStorage.getItem('gvc_review_executive')") is not None)
+    check("a stray ?loc still restores the review", p.is_visible("#thanks"))
+
+    p.goto(f"{BASE}/"); time.sleep(1.2)
     p.click("#restartBtn"); time.sleep(1.2)
     check("'start over' returns to the chip screen", p.is_visible("#flow"))
     check("'start over' clears the saved review",
-          p.evaluate("sessionStorage.getItem('gvc_review_female')") is None)
+          p.evaluate("sessionStorage.getItem('gvc_review_executive')") is None)
+    p.locator(".chip").nth(0).click(); p.locator(".chip").nth(1).click(); time.sleep(.4)
+    acc = style(p, ".chip[aria-pressed='true']", "color")
+    check("the slate accent is applied, not the other property's terracotta",
+          acc != "rgb(194, 65, 12)", acc)
+    p.screenshot(path=f"{SHOTS}/06-executive.png", full_page=True)
+    check("no overflow after restart", not overflows(p))
 
     section("10. Private feedback path")
     p.click("#privateToggle"); time.sleep(.4)
@@ -400,7 +401,7 @@ with sync_playwright() as pw:
                               device_scale_factor=2, is_mobile=True, has_touch=True,
                               extra_http_headers={"x-forwarded-for": next_ip()})
     D = Page(ctx); p = D.page
-    p.goto(f"{BASE}/?loc=female"); p.wait_for_selector(".chip"); time.sleep(.6)
+    p.goto(f"{BASE}/"); p.wait_for_selector(".chip"); time.sleep(.6)
     bg, ink = style(p, "body", "backgroundColor"), style(p, "body", "color")
     check("dark background applied", bg == "rgb(20, 19, 17)", bg)
     check("warm near-black, not pure black", bg != "rgb(0, 0, 0)")
@@ -409,8 +410,8 @@ with sync_playwright() as pw:
     check("muted text readable in dark", contrast(style(p, ".sub", "color"), bg) >= 4.5,
           round(contrast(style(p, ".sub", "color"), bg), 2))
     p.locator(".chip").nth(0).click(); p.locator(".chip").nth(1).click(); time.sleep(.3)
-    check("dark accent is lighter than the light-mode one (doesn't vibrate on black)",
-          luminance(rgb(style(p, ".chip[aria-pressed='true']", "color"))) > luminance(rgb("rgb(194,65,12)")))
+    check("dark accent is lighter than the light-mode slate (doesn't vibrate on black)",
+          luminance(rgb(style(p, ".chip[aria-pressed='true']", "color"))) > luminance(rgb("rgb(28,91,126)")))
     p.click("#primaryBtn")
     txt = wait_review(p); time.sleep(.6)
     p.screenshot(path=f"{SHOTS}/08-dark-review.png", full_page=True)
@@ -427,7 +428,7 @@ with sync_playwright() as pw:
     ctx = browser.new_context(viewport={"width": 360, "height": 640}, is_mobile=True, has_touch=True,
                               extra_http_headers={"x-forwarded-for": next_ip()})
     S = Page(ctx); p = S.page
-    p.goto(f"{BASE}/?loc=executive"); p.wait_for_selector(".chip"); time.sleep(.6)
+    p.goto(f"{BASE}/"); p.wait_for_selector(".chip"); time.sleep(.6)
     check("no horizontal scroll at 360px", not overflows(p),
           p.evaluate("document.documentElement.scrollWidth"))
     check("chips still meet 44px", p.eval_on_selector_all(

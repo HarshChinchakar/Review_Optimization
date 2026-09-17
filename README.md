@@ -1,13 +1,17 @@
 # Feedback Scaler
 
-A one-screen mobile page for GVC PG. A resident scans the QR at the door, taps a few things that were good
-about their stay, and Groq writes a natural, keyword-rich Google review in their voice. They tap once more,
-the text is on their clipboard, and Google's review box opens for them to paste and post.
+A one-screen mobile page for **GVC Executive PG** (Ashoka Heritage, New DP Rd, Vishal Nagar / Pimple Nilakh).
+A resident scans the QR at the door, taps a few things that were good about their stay, and Groq writes a
+natural, keyword-rich Google review in their voice. They tap once more, the text is on their clipboard, and
+Google's review box opens for them to paste and post.
 
-**Two locations, one deployment:** `/?loc=female` (GVC PG Service, Kalewadi) and `/?loc=executive`
-(GVC Executive PG, Ashoka Heritage, Vishal Nagar / Pimple Nilakh) — different keywords, different tone,
-different accent colour, separate QR codes. They sit in different micro-markets, so their review text carries
-different place names.
+**One property, one repo, one deployment, one QR.** This build serves GVC Executive PG and nothing else.
+The other property (GVC PG Service, Kalewadi) gets its own copy of this repo, its own Vercel project and its
+own QR — its own keywords, tone, accent colour and Google review link.
+
+That separation is deliberate. Because there is only one property here, the QR encodes the **bare deployment
+URL** with no query string, so a scan cannot land on the wrong property's chips or, worse, the wrong
+property's review box. Any stray `?loc=…` on the URL resolves to Executive rather than switching anything.
 
 Background reading, both written before the code and used as its spec:
 - [docs/01-competitive-research.md](docs/01-competitive-research.md) — 8 comparable systems, what works, do/don't, compliance
@@ -35,12 +39,11 @@ else happens, and the handoff sheet tells them the exact gesture to use when the
 
 | # | What | Why | Status |
 |---|---|---|---|
-| 0 | *(reference)* Paste the `g.page/r/…/review` link into a browser once and copy **where it lands** — `search.google.com/local/writereview?placeid=…`. Use that. Android app-links hand `g.page` straight to the Maps app, which drops people on the profile instead of the review box | Keeps the resident on google.com with a clipboard they can actually paste | ✅ done for Executive |
-| 1 | **"Ask for reviews" link for GVC PG Service (Female Only)** — Business Profile → Home → *Ask for reviews*. Looks like `https://g.page/r/XXXXXXXX/review` | The Executive link is in and verified. Without the female one, that QR falls back to a Maps search and loses people at the last step | ⛔ **still needed** |
-| 2 | **Who GVC Executive PG is for** — men, mixed, or women too? | Address, phone and rent band are in. But the chip *tone* depends on the audience: if women stay there too, the safety chips belong on it as well | ⚠️ before printing that QR |
-| 3 | **Amenity truth-check** for both properties — meals, WiFi, AC, hot water, power backup, laundry, housekeeping, sharing options, gate timing, CCTV, parking | **Every chip must be true.** A chip for something you don't offer turns a real review into a false claim | ⚠️ do this before going live |
-| 4 | Your Vercel account (free tier is enough) | Deployment | — |
-| 5 | A Groq key that isn't the throwaway one | The key in `.env` right now is the temporary one you shared, and you said you're revoking it | ⚠️ |
+| 0 | *(reference)* Paste the `g.page/r/…/review` link into a browser once and copy **where it lands** — `search.google.com/local/writereview?placeid=…`. Use that. Android app-links hand `g.page` straight to the Maps app, which drops people on the profile instead of the review box | Keeps the resident on google.com with a clipboard they can actually paste | ✅ done |
+| 1 | **Who GVC Executive PG is for** — men, mixed, or women too? | Address, phone and rent band are in. But the chip *tone* depends on the audience: if women stay there too, the safety chips belong on it as well | ⚠️ before printing the QR |
+| 2 | **Amenity truth-check** — meals, WiFi, AC, hot water, power backup, laundry, housekeeping, sharing options, gate timing, CCTV, parking | **Every chip must be true.** A chip for something you don't offer turns a real review into a false claim | ⚠️ do this before going live |
+| 3 | Your Vercel account (free tier is enough) | Deployment | — |
+| 4 | A Groq key that isn't the throwaway one | The key in `.env` right now is the temporary one you shared, and you said you're revoking it | ⚠️ |
 
 Nothing else. No Google API access, no OAuth, no verification, no database.
 
@@ -61,14 +64,22 @@ git remote add origin <your-repo-url> && git push -u origin main
 
 # 3. Project Settings -> Environment Variables, add:
 #    GROQ_API_KEY          gsk_...                          (all environments)
-#    REVIEW_URL_FEMALE     https://search.google.com/local/writereview?placeid=...
 #    REVIEW_URL_EXECUTIVE  https://search.google.com/local/writereview?placeid=...
 #    REVIEW_DESTINATION    composer   (or "profile" — see below)
 #    GROQ_MODEL            openai/gpt-oss-120b              (optional)
 
-# 4. Deploy. Then point the QRs at the live URL:
+# 4. Deploy. Then point the QR at the live URL:
 npm run qr -- https://your-project.vercel.app
 ```
+
+`npm run qr` writes `qr-executive.png`, `qr-executive.svg` and a printable A5 `poster-executive.html`,
+all encoding the bare deployment URL.
+
+**Adding the second property later:** copy this repo, replace the single entry in
+[lib/business.js](lib/business.js) with that property's name, address, review link, accent and chips, then
+deploy it as a separate Vercel project with its own `REVIEW_URL_…`. Print its QR from its own deployment.
+Nothing is shared between the two, which is the point — neither can send a resident to the other's
+Google review box.
 
 Or straight from this folder without GitHub:
 
@@ -88,7 +99,7 @@ never enters the repo, and it never reaches the browser either: all Groq calls h
 cp .env.example .env      # already done — your test key is in there
 npm run dev               # http://localhost:3000
 npm run smoke             # prints 5 sample reviews so you can judge the writing
-npm run qr                # QR codes + printable A5 posters for both properties
+npm run qr                # QR code + printable A5 poster
 ```
 
 No `npm install` — there are zero runtime dependencies. Node 20+.
@@ -101,16 +112,15 @@ npm run dev               # in one terminal
 npm test                  # in another
 ```
 
-`scripts/test-ui.py` drives real Chromium at 390×844 and 360×640 and runs **149 checks**: the API contract,
+`scripts/test-ui.py` drives real Chromium at 390×844 and 360×640 and runs **146 checks**: the API contract,
 input validation and rate limiting, the anti-fabrication rules on generated text (no invented prices, no em
-dashes, no emoji, no keyword listing, length actually varies), the full tap-to-post flow for both properties,
-the clipboard, the handoff sheet, returning to the page, the private path, colour contrast against WCAG AA,
+dashes, no emoji, no keyword listing, length actually varies), the full tap-to-post flow, the clipboard, the handoff sheet, returning to the page, the private path, colour contrast against WCAG AA,
 44px tap targets, horizontal overflow, text clipping, and light *and* dark mode. Screenshots land in
 `.screens/` so you can look at what it saw.
 
 Bugs it has already caught: 42px tap targets, a review box that collapsed to zero height in dark mode, an
-`AbortController` that was cancelling its own retries, one property's QR wiping the other's saved review, and
-a single tapped chip being padded out into a 90-word review.
+`AbortController` that was cancelling its own retries, and a single tapped chip being padded out into a
+90-word review.
 
 ---
 
@@ -119,8 +129,8 @@ a single tapped chip being padded out into a 90-word review.
 Everything business-specific is in **[lib/business.js](lib/business.js)**. Each chip is two things:
 
 ```js
-{ id: 'safe', label: 'Feels safe', emoji: '🔒', seo: 'safe PG for girls in Kalewadi, secure for female residents' }
-//              ^ what the resident reads                ^ what the AI is told the tap means
+{ id: 'wifi', label: 'Fast WiFi', emoji: '📶', seo: 'high-speed WiFi, reliable for work from home' }
+//              ^ what the resident reads            ^ what the AI is told the tap means
 ```
 
 That split is the whole trick. The resident sees three human words and taps instantly; the model receives the
@@ -185,13 +195,13 @@ clear instructions is the whole of what is possible.
 
 ```
 api/generate.js      Groq call, prompt rules, model fallback, rate limit   (server-side; the key lives here)
-api/config.js        Serves the chip set for a location, shuffled per visit
+api/config.js        Serves the chip set, shuffled per visit
 api/feedback.js      Private feedback + funnel counters -> Vercel logs
-lib/business.js      ← the file you'll actually edit: both properties, all chips, all keywords
+lib/business.js      ← the file you'll actually edit: the property, all chips, all keywords
 lib/http.js          Small request/response helpers
 public/index.html    The entire mobile page — hand-written HTML/CSS/JS, no framework, no build
 dev-server.js        Local dev only; Vercel never runs it
-scripts/make-qr.js   QR codes + printable A5 posters per property
+scripts/make-qr.js   QR code + printable A5 poster for this deployment
 scripts/smoke.js     Prints sample reviews to judge quality
 .claude/skills/      The two skills this was built against (see below)
 ```

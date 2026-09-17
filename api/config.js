@@ -2,12 +2,13 @@ import { getLocation, reviewLinkFor } from '../lib/business.js';
 import { json, shuffle } from '../lib/http.js';
 
 /**
- * GET /api/config?loc=female
+ * GET /api/config
+ * This deployment serves GVC Executive PG only, so there is no location to select.
  * Priority chips are fixed and ordered; the rest of the pool is shuffled and sampled per visit
  * so two residents rarely tap the same combination, and the profile doesn't fill with clones.
  */
 export default function handler(req, res) {
-  const loc = getLocation(new URL(req.url, 'http://x').searchParams.get('loc'));
+  const loc = getLocation();
   const strip = ({ id, label, emoji }) => ({ id, label, emoji });
 
   json(res, 200, {

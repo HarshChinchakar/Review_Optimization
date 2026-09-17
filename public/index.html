@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-accent="terracotta">
+<html lang="en" data-accent="slate">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -279,16 +279,16 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const params = new URLSearchParams(location.search);
-  const LOC = params.get('loc') === 'executive' ? 'executive' : 'female';
+  // One deployment, one property. The QR is the bare domain; no ?loc to get wrong.
+  const LOC = 'executive';
 
-  const STORE_KEY = 'gvc_review_' + LOC;   // per property, so one QR never clears the other's
+  const STORE_KEY = 'gvc_review_' + LOC;
   const state = { cfg: null, picked: new Set(), review: '', busy: false, posted: false };
 
   /* ---------- boot ---------- */
   const boot = async () => {
     try {
-      state.cfg = await fetch('/api/config?loc=' + LOC).then((r) => r.json());
+      state.cfg = await fetch('/api/config').then((r) => r.json());
     } catch {
       $('pickErr').innerHTML = '<div class="err">No connection. Check your internet and pull down to refresh.</div>';
       return;
@@ -298,7 +298,7 @@
     document.title = 'Review ' + c.name;
     $('bizName').textContent = c.name;
     $('bizTag').textContent = c.tagline;
-    if (LOC === 'executive') $('askTitle').textContent = 'What worked well for you here?';
+    $('askTitle').textContent = 'What worked well for you here?';
 
     $('chips').innerHTML = c.chips.map((chip) =>
       `<button class="chip" type="button" aria-pressed="false" data-id="${chip.id}">` +

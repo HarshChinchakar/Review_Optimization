@@ -23,9 +23,9 @@ const run = async (loc, chips, note = '') => {
 };
 
 console.log('Generating sample reviews…');
-await run('female', ['safe', 'food', 'owner']);
-await run('female', ['safe', 'food', 'owner']);          // same taps, must read differently
-await run('female', ['clean', 'wifi', 'commute', 'value', 'parents']);
-await run('female', ['safe', 'clean'], 'the wifi drops sometimes in the evening');
-await run('executive', ['furnished', 'wifi', 'location', 'privacy']);
+await run('executive', ['furnished', 'wifi', 'location']);
+await run('executive', ['furnished', 'wifi', 'location']);   // same taps, must read differently
+await run('executive', ['clean', 'privacy', 'value', 'market', 'checkin']);
+await run('executive', ['furnished', 'clean'], 'the wifi drops sometimes in the evening');
+await run('executive', ['location', 'owner', 'security', 'hotwater']);
 console.log('');

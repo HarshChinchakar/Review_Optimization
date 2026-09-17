@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Builds one QR + one printable poster per property.
+ * Builds the QR + printable poster for this deployment's property (GVC Executive PG).
  *   npm run qr                          uses PUBLIC_URL from .env
  *   npm run qr -- https://your.app      override
+ *
+ * The QR encodes the bare deployment URL — no ?loc. Each property gets its own repo,
+ * its own Vercel project and its own QR, so a scan cannot land on the wrong one.
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -58,7 +61,7 @@ const poster = (loc, svg, url) => `<!doctype html>
 </div>`;
 
 for (const loc of Object.values(LOCATIONS)) {
-  const url = `${base}/?loc=${loc.key}`;
+  const url = `${base}/`;
   const png = path.join(ROOT, `qr-${loc.key}.png`);
   const svg = makeQr(url, png);
   fs.writeFileSync(path.join(ROOT, `qr-${loc.key}.svg`), svg);

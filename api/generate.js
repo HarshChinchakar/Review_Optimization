@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   let body;
   try { body = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
 
-  const loc = getLocation(body.loc);
+  const loc = getLocation();
   const known = new Map([...loc.priority, ...loc.pool].map((c) => [c.id, c]));
   const chips = (Array.isArray(body.chips) ? body.chips : []).map((id) => known.get(id)).filter(Boolean).slice(0, 10);
 

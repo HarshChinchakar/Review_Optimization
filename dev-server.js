@@ -43,7 +43,6 @@ http.createServer(async (req, res) => {
     res.end(buf);
   } catch { res.statusCode = 404; res.end('not found'); }
 }).listen(PORT, () => {
-  console.log(`\n  dev  →  http://localhost:${PORT}          (female PG)`);
-  console.log(`         http://localhost:${PORT}/?loc=executive  (executive PG)`);
+  console.log(`\n  dev  →  http://localhost:${PORT}   (GVC Executive PG, Ashoka Heritage)`);
   console.log(process.env.GROQ_API_KEY ? '  GROQ_API_KEY loaded\n' : '  ⚠ GROQ_API_KEY missing — add it to .env\n');
 });
